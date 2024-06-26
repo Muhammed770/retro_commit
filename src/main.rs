@@ -1,8 +1,8 @@
 use chrono::{Utc, Duration};
 use rand::Rng;
 use std::fs::File;
-use std::io::{self, ErrorKind, Write};
-use std::process::{Command, Output};
+use std::io::{self, Write};
+use std::process::Command;
 use std::path::Path;
 
 const FILE_PATH: &str = "data.json";
@@ -24,12 +24,14 @@ fn main() {
     let def_user_email = get_git_config_values("user.email").expect("error");
     
     let mut choice = String::new();
-    println!("Do you want to change DEFAULT user.name {} and user.email {}? (Y/N)",def_user_name,def_user_email);
+    println!("user.name: {}",def_user_name);
+    println!("user.email: {}",def_user_email);
+    println!("Do you want to change DEFAULT user.name and user.email? (Y/N)");
     io::stdin().read_line(&mut choice)
         .expect("failed to read choice");
     let mut name = String::new();
     let mut email = String::new();
-    if choice == "Y" || choice == "y" {
+    if choice.trim() == "Y" || choice.trim() == "y" {
         println!("Enter username: ");
         io::stdin().read_line(&mut name)
             .expect("failed to read username");
@@ -161,7 +163,7 @@ fn set_git_remote(remote_url: &str) -> io::Result<()> {
 fn random_commit(name: &str, email: &str, n_commits: i32, n_days: i64) -> io::Result<()> {
     if n_commits == 0 {
         // Use the below command to push all commits when needed
-        Command::new("git").arg("push").output().expect("Failed to push commits");
+        Command::new("git").args(&["push","origin","main"]).output().expect("Failed to push commits");
         println!("done");
         return Ok(());
     }
