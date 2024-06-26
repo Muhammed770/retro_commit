@@ -1,8 +1,8 @@
 use chrono::{Utc, Duration};
 use rand::Rng;
 use std::fs::File;
-use std::io::{self, Write};
-use std::process::Command;
+use std::io::{self, ErrorKind, Write};
+use std::process::{Command, Output};
 use std::path::Path;
 
 const FILE_PATH: &str = "data.json";
@@ -20,14 +20,26 @@ fn main() {
         let remote_url = remote_url.trim();
         set_git_remote(remote_url).expect("Failed to set Git remote");
     }
+    let def_user_name =  get_git_config_values("user.name").expect("error");
+    let def_user_email = get_git_config_values("user.email").expect("error");
+    
+    let mut choice = String::new();
+    println!("Do you want to change DEFAULT user.name {} and user.email {}? (Y/N)",def_user_name,def_user_email);
+    io::stdin().read_line(&mut choice)
+        .expect("failed to read choice");
     let mut name = String::new();
-    println!("Enter username: ");
-    io::stdin().read_line(&mut name)
-        .expect("failed to read username");
     let mut email = String::new();
-    println!("please enter email id linked to your github:");
-    io::stdin().read_line(&mut email)
-        .expect("failed to read email");
+    if choice == "Y" || choice == "y" {
+        println!("Enter username: ");
+        io::stdin().read_line(&mut name)
+            .expect("failed to read username");
+        println!("please enter email id linked to your github:");
+        io::stdin().read_line(&mut email)
+            .expect("failed to read email");
+    } else {
+        name = def_user_name;
+        email = def_user_email;
+    }
     let mut n_commits = String::new();
     println!("please enter number of commits:");
     io::stdin().read_line(&mut n_commits)
@@ -62,6 +74,9 @@ fn main() {
     }
 
     println!("username:{} ,email:{} ,n_commits:{}, n_days:{}", name.trim(), email.trim(), n_commits, n_days);
+    if !is_branch_main() {
+        set_branch_main().expect("failed to set main branch");
+    }
     match random_commit(name.trim(), email.trim(), n_commits, n_days) {
         Ok(_) => {
             println!("fn runs successfully")
@@ -71,6 +86,27 @@ fn main() {
     }
 }
 
+fn get_git_config_values(key:&str) -> io::Result<String> {
+    let output = Command::new("git").args(&["config","--get",key]).output().expect("cmd error: git config error");
+    if output.status.success() {
+        let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        Ok(value)
+    } else {
+        eprintln!("Failed to get git config from {}: {}",key,String::from_utf8_lossy(&output.stderr));
+        Err(io::Error::new(io::ErrorKind::Other,"Failed to get git config"))
+    }
+}
+
+fn set_branch_main() -> io::Result<()> {
+    let output = Command::new("git").args(&["checkout","-B","main"]).output().expect("cmd error :checkout to main branch error");
+    if output.status.success() {
+        println!("main branch set success");
+        Ok(())
+    } else {
+        eprintln!("Failed to checkout main branch: {}", String::from_utf8_lossy(&output.stderr));
+        Err(io::Error::new(io::ErrorKind::Other, "Failed to set branch main"))
+    }
+}
 
 fn is_git_initialized() -> bool {
     Path::new(".git").exists()
@@ -88,6 +124,13 @@ fn initialize_git() -> io::Result<()> {
         eprintln!("Failed to initialize Git repository: {}", String::from_utf8_lossy(&output.stderr));
         Err(io::Error::new(io::ErrorKind::Other, "Failed to initialize Git repository"))
     }
+}
+
+fn is_branch_main() -> bool {
+    let output = Command::new("git").arg("branch").output().expect("failed to execute git branch");
+    println!("is_branch_main {}",String::from_utf8_lossy(&output.stdout));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.lines().any(|line| line.trim() == "* main")
 }
 
 
